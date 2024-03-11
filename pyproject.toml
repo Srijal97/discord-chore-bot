@@ -12,6 +12,7 @@ dynamic = ["version"]
 description = "A Discord bot that assigns chores to users in a server."
 readme = "README.md"
 dependencies = [
+    "discord.py",
     "numpy",
     "pytz",
 ]
