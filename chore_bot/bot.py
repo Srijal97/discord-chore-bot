@@ -1,10 +1,12 @@
 # This example requires the 'message_content' intent.
 
+import datetime
+import os
+
 import discord
 from discord.ext import commands, tasks
 
 from chore_bot.chore_manager import ChoreManager
-import datetime
 
 intents = discord.Intents.default()
 intents.members = True
@@ -119,4 +121,4 @@ async def help(ctx):
     await ctx.send(message)
 
 
-bot.run("MTIxNjUyNzM5MDY1NDU5OTE2OA.G4gMW2.AxDC5-F0NLRj3P0Ljf0MLh7LmRxc2SjasgqPZU")
+bot.run(os.environ["DISCORD_BOT_TOKEN"])
