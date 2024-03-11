@@ -1,0 +1,20 @@
+{
+    "daily_chores": [
+        "Take the trash out",
+        "Take the recyclables out",
+        "Unload the dishwasher",
+        "Clean the stove and countertop",
+        "Clean the sink",
+        "Clean the kitchen floors",
+        "Clean the hallway"
+    ],
+    "weekly_chores": {
+        "Sunday": [],
+        "Monday": ["Take the bins out to the curb"],
+        "Tuesday": [],
+        "Wednesday": [],
+        "Thursday": [],
+        "Friday": [],
+        "Saturday": []
+    }
+}
