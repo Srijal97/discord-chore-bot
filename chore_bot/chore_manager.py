@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Union, Any
+import datetime
 
 import numpy as np
 
@@ -59,8 +60,22 @@ class ChoreManager:
 
         return self._assignments
 
-    def mark_as_done(self, member: Any, chore: str = None) -> None:
-        if chore is None:
+    @property
+    def visible_assignments(self):
+        visible_assignments = {}
+        for idx, (chore, _) in enumerate(self.daily_assignments.items(), 1):
+            visible_assignments[idx] = chore
+        weekday = datetime.datetime.now().strftime("%A")
+        weekly_assignments = self.weekly_assignments(weekday)
+        for idx, (chore, _) in enumerate(
+            weekly_assignments.items(), len(self.daily_assignments) + 1
+        ):
+            visible_assignments[idx] = chore
+
+    def mark_as_done(self, member: Any, chore: Union[str, int] = None) -> bool:
+        try:
+            chore = int(chore)
+        except TypeError:  # chore is None
             for chore, assignee in self._assignments[DAILY_CHORES].items():
                 if assignee == member:
                     self._assignments[DAILY_CHORES][chore] = None
@@ -68,13 +83,26 @@ class ChoreManager:
                 for chore, assignee in chores.items():
                     if assignee == member:
                         self._assignments[WEEKLY_CHORES][day][chore] = None
+            return True
+        except ValueError:  # chore is a string
+            pass
         else:
-            if chore in self._assignments[DAILY_CHORES]:
-                self._assignments[DAILY_CHORES][chore] = None
-            else:
-                for day, chores in self._assignments[WEEKLY_CHORES].items():
-                    if chore in self._assignments[WEEKLY_CHORES][day]:
-                        self._assignments[WEEKLY_CHORES][day][chore] = None
+            try:
+                chore = self.visible_assignments[chore]
+            except KeyError:
+                return False
+
+        marked = False
+        if chore in self._assignments[DAILY_CHORES]:
+            self._assignments[DAILY_CHORES][chore] = None
+            marked = True
+        else:
+            for day, chores in self._assignments[WEEKLY_CHORES].items():
+                if chore in self._assignments[WEEKLY_CHORES][day]:
+                    self._assignments[WEEKLY_CHORES][day][chore] = None
+                    marked = True
+                    break
+        return marked
 
     def daily_assignments(self) -> dict[str, str]:
         return self.assignments[DAILY_CHORES]

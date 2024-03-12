@@ -90,22 +90,20 @@ async def chores(ctx):
 @bot.command()
 async def done(ctx, chore: str = None):
     """Mark a chore as done."""
-    try:
-        chore = int(chore)
-    except ValueError:
-        pass
-    else:
-        if 1 <= chore <= len(chore_manager.daily_chores):
-            chore = list(chore_manager.daily_chores.keys())[chore - 1]
-        else:
-            await ctx.send("Invalid chore number.")
-            return
-
-    chore_manager.mark_as_done(ctx.author, chore)
     if chore is None:
-        message = f"All of {ctx.author.mention}'s chores have been marked as done. Thank you for completing them!"
+        marked = chore_manager.mark_as_done(ctx.author)
+        if marked:
+            message = f"All of {ctx.author.mention}'s chores have been marked as done. Thank you for completing them!"
+        else:
+            message = (
+                f"{ctx.author.mention}, you don't have any chores to be marked as done."
+            )
     else:
-        message = f"'{chore}' has been marked as done. Thank you for completing it!"
+        marked = chore_manager.mark_as_done(ctx.author, chore)
+        if marked:
+            message = f"'{chore}' has been marked as done. Thank you for completing it!"
+        else:
+            message = f"{ctx.author.mention}, you don't have a chore named '{chore}'."
     await ctx.send(message)
 
 
