@@ -71,6 +71,7 @@ class ChoreManager:
             weekly_assignments.items(), len(self.daily_assignments()) + 1
         ):
             visible_assignments[idx] = chore
+        return visible_assignments
 
     def mark_as_done(self, member: Any, chore: Union[str, int] = None) -> bool:
         try:
