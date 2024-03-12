@@ -69,14 +69,12 @@ class ChoreManager:
                     if assignee == member:
                         self._assignments[WEEKLY_CHORES][day][chore] = None
         else:
-            try:
+            if chore in self._assignments[DAILY_CHORES]:
                 self._assignments[DAILY_CHORES][chore] = None
-            except KeyError:
+            else:
                 for day, chores in self._assignments[WEEKLY_CHORES].items():
-                    try:
+                    if chore in self._assignments[WEEKLY_CHORES][day]:
                         self._assignments[WEEKLY_CHORES][day][chore] = None
-                    except KeyError:
-                        pass
 
     def daily_assignments(self) -> dict[str, str]:
         return self.assignments[DAILY_CHORES]
