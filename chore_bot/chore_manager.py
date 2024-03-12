@@ -63,12 +63,12 @@ class ChoreManager:
     @property
     def visible_assignments(self):
         visible_assignments = {}
-        for idx, (chore, _) in enumerate(self.daily_assignments.items(), 1):
+        for idx, (chore, _) in enumerate(self.daily_assignments().items(), 1):
             visible_assignments[idx] = chore
         weekday = datetime.datetime.now().strftime("%A")
         weekly_assignments = self.weekly_assignments(weekday)
         for idx, (chore, _) in enumerate(
-            weekly_assignments.items(), len(self.daily_assignments) + 1
+            weekly_assignments.items(), len(self.daily_assignments()) + 1
         ):
             visible_assignments[idx] = chore
 
