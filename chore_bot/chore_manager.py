@@ -10,6 +10,19 @@ DAILY_CHORES = "daily_chores"
 WEEKLY_CHORES = "weekly_chores"
 
 
+class RNGEscalatingOdds:
+    def __init__(self, array) -> None:
+        self.rng = np.random.default_rng()
+        self.odds = np.ones(len(array)) / len(array)
+        self.array = array
+
+    def choice(self) -> Any:
+        choice = self.rng.choice(self.array, p=self.odds)
+        self.odds[choice] = self.odds[choice] / 2
+        self.odds = self.odds / self.odds.sum()
+        return choice
+
+
 class ChoreManager:
     def __init__(self, members: list[str], config_file: Union[str, Path]) -> None:
         with open(config_file, "r") as f:
@@ -19,7 +32,7 @@ class ChoreManager:
         self.daily_chores = config[DAILY_CHORES]
         self.weekly_chores = config[WEEKLY_CHORES]
 
-        self.rng = np.random.default_rng()
+        self.rng = RNGEscalatingOdds(self.members)
 
         self._assignments = {
             DAILY_CHORES: {chore: None for chore in self.daily_chores},
@@ -48,15 +61,11 @@ class ChoreManager:
     def assignments(self):
         for chore, assignee in self._assignments[DAILY_CHORES].items():
             if assignee is None or assignee in self.inactive_members:
-                self._assignments[DAILY_CHORES][chore] = self.rng.choice(
-                    self.active_members
-                )
+                self._assignments[DAILY_CHORES][chore] = self.rng.choice()
         for day, chores in self._assignments[WEEKLY_CHORES].items():
             for chore, assignee in chores.items():
                 if assignee is None or assignee in self.inactive_members:
-                    self._assignments[WEEKLY_CHORES][day][chore] = self.rng.choice(
-                        self.active_members
-                    )
+                    self._assignments[WEEKLY_CHORES][day][chore] = self.rng.choice()
 
         return self._assignments
 
