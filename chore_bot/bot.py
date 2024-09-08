@@ -16,9 +16,7 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 chore_manager = None
 est_timezone = pytz.timezone('America/New_York')
-# current_time_est = datetime.datetime.now(est_timezone)
-# local_timezone = datetime.datetime.now().astimezone().tzinfo
-daily_notification_time = datetime.time(hour=9, minute=0, tzinfo=est_timezone)
+daily_notification_time = datetime.time(hour=6, minute=0, tzinfo=est_timezone)
 CHORES_CHANNEL = 1275242284358565928
 
 

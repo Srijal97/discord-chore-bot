@@ -17,8 +17,9 @@ class RNGEscalatingOdds:
         self.array = array
 
     def choice(self) -> Any:
-        choice = self.rng.choice(self.array, p=self.odds)
-        self.odds[choice] = self.odds[choice] / 2
+        index = self.rng.choice(len(self.array), p=self.odds)
+        choice = self.array[index]
+        self.odds[index] = self.odds[index] / 2
         self.odds = self.odds / self.odds.sum()
         return choice
 
