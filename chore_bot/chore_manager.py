@@ -123,7 +123,7 @@ class ChoreManager:
 
 if __name__ == "__main__":
     chore_manager = ChoreManager(
-        ["Allison", "Arka", "Priyatham", "Rachel", "Srijal"], "config.json"
+        ["Ajinkya", "Arka", "Anish", "Priyatham", "Jimmy", "Srijal"], "config.json"
     )
     print(chore_manager.daily_assignments())
     print(chore_manager.weekly_assignments("Monday"))

@@ -2,7 +2,7 @@
 
 import datetime
 import os
-
+import pytz
 import discord
 from discord.ext import commands, tasks
 
@@ -15,9 +15,11 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 chore_manager = None
-local_timezone = datetime.datetime.now().astimezone().tzinfo
-daily_notification_time = datetime.time(hour=9, minute=0, tzinfo=local_timezone)
-CHORES_CHANNEL = 1216559239456227439
+est_timezone = pytz.timezone('America/New_York')
+# current_time_est = datetime.datetime.now(est_timezone)
+# local_timezone = datetime.datetime.now().astimezone().tzinfo
+daily_notification_time = datetime.time(hour=9, minute=0, tzinfo=est_timezone)
+CHORES_CHANNEL = 1275242284358565928
 
 
 @bot.event
