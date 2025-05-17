@@ -6,6 +6,7 @@ import datetime
 import pytz
 import discord
 from discord.ext import commands, tasks
+from pathlib import Path
 
 from chore_manager import ChoreManager
 
@@ -15,6 +16,7 @@ TZ = pytz.timezone(os.environ.get("TIMEZONE", "US/Eastern"))
 # file paths
 CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
 STATE_FILE = os.environ.get("STATE_FILE", "state.json")
+MEMBERS_FILE = os.environ.get("MEMBERS_FILE", "members.json")
 CHANNEL_ID = int(os.environ.get("CHORE_CHANNEL_ID", "1275242284358565928"))  # set this env var
 
 intents = discord.Intents.default()
@@ -26,17 +28,38 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 chore_manager: ChoreManager  # will init in on_ready
 
 
+def load_member_ids() -> list[int]:
+    p = Path(MEMBERS_FILE)
+    if not p.exists():
+        p.write_text(json.dumps({"members": []}, indent=2))
+        return []
+    data = json.loads(p.read_text())
+    return data.get("members", [])
+
+
+def save_member_ids(ids: list[int]) -> None:
+    Path(MEMBERS_FILE).write_text(json.dumps({"members": ids}, indent=2))
+
+
+def build_chore_manager(guild: discord.Guild) -> ChoreManager:
+    """Load roster, map to display_names, and return a fresh ChoreManager."""
+    ids = load_member_ids()
+    names = []
+    for uid in ids:
+        member = guild.get_member(uid)
+        if member:
+            names.append(member.display_name)
+    return ChoreManager(names, CONFIG_FILE, state_file=STATE_FILE)
+
+
 @bot.event
 async def on_ready():
     global chore_manager
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    # grab all non-bot member names
     guild = bot.guilds[0]
-    members = [m.name for m in guild.members if not m.bot]
-    chore_manager = ChoreManager(members, CONFIG_FILE, state_file=STATE_FILE)
-    # kick off daily notification at 6:00
+    chore_manager = build_chore_manager(guild)
     send_daily_chores.start()
-    print("ChoreManager initialized and daily task started.")
+    print("ChoreManager initialized with roster:", chore_manager.members)
 
 
 @tasks.loop(time=datetime.time(hour=6, minute=0, tzinfo=TZ))
@@ -50,7 +73,7 @@ async def send_daily_chores():
 
 def _format_assignments() -> str:
     today = datetime.datetime.now(TZ).strftime("%A")
-    daily = chore_manager.daily_assignments()
+    daily  = chore_manager.daily_assignments()
     weekly = chore_manager.weekly_assignments(today)
 
     lines = ["**Today's Chores:**"]
@@ -76,40 +99,58 @@ async def done(ctx: commands.Context, arg: str = None):
     If arg is an integer, marks that numbered chore.
     If omitted, marks all of your chores.
     """
-    member = ctx.author.name
-    # try to parse integer first
-    chore_arg: int | None
+    member = ctx.author.display_name
     try:
         chore_arg = int(arg) if arg else None
     except ValueError:
         chore_arg = arg  # treat as string
     ok = chore_manager.mark_as_done(member, chore_arg)
-    if ok:
-        await ctx.send(f"{member}, marked `{arg or 'all your chores'}` as done.")
-    else:
-        await ctx.send(f"Could not find chore `{arg}` to mark done.")
+    await ctx.send(
+        f"{member}, marked `{arg or 'all your chores'}` as done."
+        if ok else
+        f"Could not find chore `{arg}` to mark done."
+    )
 
 
 @bot.command()
-async def inactive(ctx: commands.Context, member: str = None):
+async def active(ctx: commands.Context, member: discord.Member = None):
     """
-    Mark a member inactive (they'll be skipped).
-    If no member is given, marks you.
+    Add yourself (or another member) into the rotation roster.
     """
-    who = member or ctx.author.name
-    chore_manager.add_inactive_member(who)
-    await ctx.send(f"Marked **{who}** as inactive.")
+    who = member or ctx.author
+    ids = load_member_ids()
+    if who.id in ids:
+        await ctx.send(f"**{who.display_name}** is already in the rotation.")
+        return
+
+    ids.append(who.id)
+    save_member_ids(ids)
+
+    # rebuild chore_manager with the new roster
+    chore_manager_ref = build_chore_manager(ctx.guild)
+    globals()["chore_manager"] = chore_manager_ref
+
+    await ctx.send(f"Added **{who.display_name}** to the rotation.")
 
 
 @bot.command()
-async def active(ctx: commands.Context, member: str = None):
+async def inactive(ctx: commands.Context, member: discord.Member = None):
     """
-    Mark a member active again.
-    If no member is given, marks you.
+    Remove yourself (or another member) from the rotation roster.
     """
-    who = member or ctx.author.name
-    chore_manager.remove_inactive_member(who)
-    await ctx.send(f"Marked **{who}** as active.")
+    who = member or ctx.author
+    ids = load_member_ids()
+    if who.id not in ids:
+        await ctx.send(f"**{who.display_name}** is not in the rotation.")
+        return
+
+    ids.remove(who.id)
+    save_member_ids(ids)
+
+    chore_manager_ref = build_chore_manager(ctx.guild)
+    globals()["chore_manager"] = chore_manager_ref
+
+    await ctx.send(f"Removed **{who.display_name}** from the rotation.")
 
 
 @bot.command()
