@@ -72,17 +72,24 @@ async def send_daily_chores():
 
 
 def _format_assignments() -> str:
-    today = datetime.datetime.now(TZ).strftime("%A")
+    today  = datetime.datetime.now(TZ).strftime("%A")
     daily  = chore_manager.daily_assignments()
     weekly = chore_manager.weekly_assignments(today)
 
     lines = ["**Today's Chores:**"]
+    idx = 1
+    # number the daily chores
     for chore, person in daily.items():
-        lines.append(f"- {chore}: **{person}**")
+        lines.append(f"{idx}. {chore}: **{person}**")
+        idx += 1
+
+    # then the weekly chores (continuing the numbering)
     if weekly:
         lines.append(f"\n**{today}'s Weekly Chores:**")
         for chore, person in weekly.items():
-            lines.append(f"- {chore}: **{person}**")
+            lines.append(f"{idx}. {chore}: **{person}**")
+            idx += 1
+
     return "\n".join(lines)
 
 
