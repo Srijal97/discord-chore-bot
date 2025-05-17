@@ -1,114 +1,114 @@
-# This example requires the 'message_content' intent.
+# bot.py
 
-import datetime
 import os
+import json
+import datetime
 import pytz
 import discord
 from discord.ext import commands, tasks
 
-from chore_bot.chore_manager import ChoreManager
+from chore_manager import ChoreManager
 
-intents = discord.Intents.default()
-intents.members = True
-intents.message_content = True
+# time zone for scheduling
+TZ = pytz.timezone(os.environ.get("TIMEZONE", "US/Eastern"))
 
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+# file paths
+CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
+STATE_FILE = os.environ.get("STATE_FILE", "state.json")
+CHANNEL_ID = int(os.environ.get("CHORE_CHANNEL_ID", "1275242284358565928"))  # set this env var
 
-chore_manager = None
-est_timezone = pytz.timezone('America/New_York')
-daily_notification_time = datetime.time(hour=6, minute=0, tzinfo=est_timezone)
-CHORES_CHANNEL = 1275242284358565928
+bot = commands.Bot(command_prefix="!", intents=discord.Intents.default(), help_command=None)
+chore_manager: ChoreManager  # will init in on_ready
 
 
 @bot.event
 async def on_ready():
-    members = []
-    for guild in bot.guilds:
-        for member in guild.members:
-            if not member.bot:
-                members.append(member)
     global chore_manager
-    chore_manager = ChoreManager(members, "config.json")
-    send_daily_notification.start()
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    # grab all non-bot member names
+    guild = bot.guilds[0]
+    members = [m.name for m in guild.members if not m.bot]
+    chore_manager = ChoreManager(members, CONFIG_FILE, state_file=STATE_FILE)
+    # kick off daily notification at 6:00
+    send_daily_chores.start()
+    print("ChoreManager initialized and daily task started.")
 
 
-def chores_list() -> str:
-    message = ""
-    daily_assignments = chore_manager.daily_assignments()
-    for idx, (chore, assignee) in enumerate(daily_assignments.items(), 1):
-        message += f"\n{idx}. {chore}: {assignee.mention}"
-    weekday = datetime.datetime.now().strftime("%A")
-    weekly_assignments = chore_manager.weekly_assignments(weekday)
-    for idx, (chore, assignee) in enumerate(
-        weekly_assignments.items(), len(daily_assignments) + 1
-    ):
-        message += f"\n{idx}. {chore}: {assignee.mention}"
-    return message
+@tasks.loop(time=datetime.time(hour=6, minute=0, tzinfo=TZ))
+async def send_daily_chores():
+    if CHANNEL_ID == 0:
+        return
+    channel = bot.get_channel(CHANNEL_ID)
+    if channel:
+        await channel.send(_format_assignments())
 
 
-@tasks.loop(time=daily_notification_time)
-async def send_daily_notification():
-    message = "Good morning! Here are today's assignments:"
-    message += chores_list()
-    message += "\nHave a great day!"
-    await bot.get_channel(CHORES_CHANNEL).send(message)
+def _format_assignments() -> str:
+    today = datetime.datetime.now(TZ).strftime("%A")
+    daily = chore_manager.daily_assignments()
+    weekly = chore_manager.weekly_assignments(today)
 
-
-@bot.command()
-async def inactive(ctx, member: discord.Member = None):
-    """Mark a member as inactive. If unspecified, you will be marked as inactive."""
-    if member:
-        inactive_member = member
-    else:
-        inactive_member = ctx.author
-    chore_manager.add_inactive_member(inactive_member)
-    message = f"{inactive_member.mention} has been marked as inactive. Here are the new assignments:"
-    message += chores_list()
-    await ctx.send(message)
+    lines = ["**Today's Chores:**"]
+    for chore, person in daily.items():
+        lines.append(f"- {chore}: **{person}**")
+    if weekly:
+        lines.append(f"\n**{today}'s Weekly Chores:**")
+        for chore, person in weekly.items():
+            lines.append(f"- {chore}: **{person}**")
+    return "\n".join(lines)
 
 
 @bot.command()
-async def active(ctx, member: discord.Member = None):
-    """Mark a member as active. If unspecified, you will be marked as active."""
-    if member:
-        active_member = member
-    else:
-        active_member = ctx.author
-    chore_manager.remove_inactive_member(active_member)
-    message = f"{active_member.mention} has been marked as active"
-    await ctx.send(message)
-
-
-@bot.command()
-async def chores(ctx):
+async def chores(ctx: commands.Context):
     """Display today's chores."""
-    message = "Here are today's assignments:"
-    message += chores_list()
-    await ctx.send(message)
+    await ctx.send(_format_assignments())
 
 
 @bot.command()
-async def done(ctx, chore: str = None):
-    """Mark a chore as done."""
-    if chore is None:
-        marked = chore_manager.mark_as_done(ctx.author)
-        if marked:
-            message = f"All of {ctx.author.mention}'s chores have been marked as done. Thank you for completing them!"
-        else:
-            message = (
-                f"{ctx.author.mention}, you don't have any chores to be marked as done."
-            )
+async def done(ctx: commands.Context, arg: str = None):
+    """
+    Mark a chore as done.
+    If arg is an integer, marks that numbered chore.
+    If omitted, marks all of your chores.
+    """
+    member = ctx.author.name
+    # try to parse integer first
+    chore_arg: int | None
+    try:
+        chore_arg = int(arg) if arg else None
+    except ValueError:
+        chore_arg = arg  # treat as string
+    ok = chore_manager.mark_as_done(member, chore_arg)
+    if ok:
+        await ctx.send(f"{member}, marked `{arg or 'all your chores'}` as done.")
     else:
-        marked = chore_manager.mark_as_done(ctx.author, chore)
-        if marked:
-            message = f"'{chore}' has been marked as done. Thank you for completing it!"
-        else:
-            message = f"{ctx.author.mention}, you don't have a chore named '{chore}'."
-    await ctx.send(message)
+        await ctx.send(f"Could not find chore `{arg}` to mark done.")
 
 
 @bot.command()
-async def help(ctx):
+async def inactive(ctx: commands.Context, member: str = None):
+    """
+    Mark a member inactive (they'll be skipped).
+    If no member is given, marks you.
+    """
+    who = member or ctx.author.name
+    chore_manager.add_inactive_member(who)
+    await ctx.send(f"Marked **{who}** as inactive.")
+
+
+@bot.command()
+async def active(ctx: commands.Context, member: str = None):
+    """
+    Mark a member active again.
+    If no member is given, marks you.
+    """
+    who = member or ctx.author.name
+    chore_manager.remove_inactive_member(who)
+    await ctx.send(f"Marked **{who}** as active.")
+
+
+@bot.command()
+async def help(ctx: commands.Context):
     """Display help message."""
     message = "Here are the available commands:\n"
     message += "!chores: Display today's chores.\n"
@@ -119,4 +119,6 @@ async def help(ctx):
     await ctx.send(message)
 
 
-bot.run(os.environ["DISCORD_BOT_TOKEN"])
+if __name__ == "__main__":
+    TOKEN = os.environ["DISCORD_BOT_TOKEN"]
+    bot.run(TOKEN)
