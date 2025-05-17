@@ -125,5 +125,5 @@ async def help(ctx: commands.Context):
 
 
 if __name__ == "__main__":
-    TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "1275242284358565928") os.environ["DISCORD_BOT_TOKEN"]
+    TOKEN = os.environ["DISCORD_BOT_TOKEN"]
     bot.run(TOKEN)
