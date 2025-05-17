@@ -17,7 +17,12 @@ CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
 STATE_FILE = os.environ.get("STATE_FILE", "state.json")
 CHANNEL_ID = int(os.environ.get("CHORE_CHANNEL_ID", "1275242284358565928"))  # set this env var
 
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.default(), help_command=None)
+intents = discord.Intents.default()
+intents.message_content = True      # needed to read !commands in guild channels
+intents.members = True              # only if you need to do guild.members
+intents.guilds = True               # usually on by default, but safe to ensure
+
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 chore_manager: ChoreManager  # will init in on_ready
 
 
@@ -120,5 +125,5 @@ async def help(ctx: commands.Context):
 
 
 if __name__ == "__main__":
-    TOKEN = os.environ["DISCORD_BOT_TOKEN"]
+    TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "1275242284358565928") os.environ["DISCORD_BOT_TOKEN"]
     bot.run(TOKEN)
